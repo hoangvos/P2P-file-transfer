@@ -116,9 +116,6 @@ def serve(request: bytes) -> str:
 		session_id = list_items[2]
 		query = list_items[1]
 
-		if query != "*":
-			query = "%" + query + "%"
-
 		try:
 			conn = database.get_connection(db_file)
 			conn.row_factory = database.sqlite3.Row

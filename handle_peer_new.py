@@ -24,6 +24,7 @@ from ttkthemes import ThemedStyle
 import re
 from CLI_handle import App
 import subprocess 
+import struct
 
 
 CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n3. clear\n\n"
@@ -211,7 +212,9 @@ def main_view(session_id:str):
         client_socket.send(values[1].encode('utf-8'))
         file_name = client_socket.recv(1024).decode('utf-8')
         print(f"File name: {file_name}")
-        file_size = client_socket.recv(1024).decode('utf-8')
+        file_size_bytes = client_socket.recv(8)
+        file_size = struct.unpack("!Q", file_size_bytes)[0]
+
         print(f"File size: {file_size}")
 
         file = open(file_name, "wb")
@@ -233,9 +236,9 @@ def main_view(session_id:str):
         file.close()
         root.after(1000,lambda: success_label.destroy())
       client_socket.close()
-      
  
- 
+
+
   try:
     conn = database.get_connection(db_file)
     conn.row_factory = database.sqlite3.Row
@@ -307,11 +310,13 @@ def user_cli(session_id:str):
     userInput = conn.recv(1024).decode('utf-8')
     cmd = userInput.split()[0]
     if cmd == "publish":
-      my_socket.send(f"ADDF_{userInput.split()[1]}_{userInput.split()[2]}_{session_id}".encode('utf-8'))
+      path = userInput.split()[2]
+      path = path.replace("\\", "/")
+      my_socket.send(f"ADDF_{userInput.split()[1]}_{path}_{session_id}".encode('utf-8'))
       rcv_message = f'{my_socket.recv(2000).decode("utf-8")}'
       shell.print_red(rcv_message)
       if rcv_message.split()[0] == "AADD":
-        conn.send(f"Successful upload {userInput.split()[2]}".encode('utf-8'))
+        conn.send(f"Successful upload {path}".encode('utf-8'))
     elif cmd == "fetch":
       my_socket.send(f"FIND_{userInput.split()[1]}_{session_id}".encode('utf-8'))
       rcv_message = f'{my_socket.recv(2000).decode("utf-8")}'
@@ -335,10 +340,11 @@ def user_cli(session_id:str):
           client_socket.send(command.split()[0].encode('utf-8'))
           file_name = client_socket.recv(1024).decode('utf-8')
           print(f"File name: {file_name}")
-          file_size = client_socket.recv(1024).decode('utf-8')
+          file_size_bytes = client_socket.recv(8)
+          file_size = struct.unpack("!Q", file_size_bytes)[0]
           print(f"File size: {file_size}")
 
-          file = open(file_name, "wb")
+          file = open(filename, "wb")
           file_bytes = b""
           done = False
           pbar  = tqdm.tqdm(unit="B", unit_scale=True, unit_divisor=1000, total=int(file_size))
@@ -352,10 +358,11 @@ def user_cli(session_id:str):
           pbar.close()
           file.write(file_bytes)
           file.close()
-          client_socket.close()
           conn.send(f"Successful download {filename} from {command.split()[-1]} !!!\n".encode('utf-8'))
-        else:
-          conn.send(f"No file name {userInput.split()[1]} !!!")
+          client_socket.close()
+      else:
+        conn.send(f"No file name {userInput.split()[1]} !!!".encode('utf-8'))
+        
     conn.close()
     my_socket.close()
 
@@ -386,9 +393,10 @@ def source_node(session_id:str):
   def child(client_socket, file_path):
     with open(file_path, 'rb') as f:
       file_size = os.path.getsize(file_path)
+      file_size_bytes = struct.pack("!Q", file_size)
       file_name = file_path.split('/')[-1]
       client_socket.send(file_name.encode('utf-8'))
-      client_socket.send(str(file_size).encode('utf-8'))
+      client_socket.sendall(file_size_bytes)
 
       data = f.read()
       client_socket.sendall(data)
