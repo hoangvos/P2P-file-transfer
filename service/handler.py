@@ -5,10 +5,12 @@ from model.File import File
 from model import peer_repository
 from model import file_repository
 import uuid
-
+from model.Peer import Peer_account
+import socket
+import pickle
 db_file = 'directory.db'
 
-def serve(request: bytes) -> str:
+def serve(request: bytes, ip) -> str:
 	""" Handle the peer request
 	Parameters:
 		request - the list containing the request parameters
@@ -24,7 +26,7 @@ def serve(request: bytes) -> str:
 		name = list_items[1]
 		file_path = list_items[2]
 		session_id = list_items[3]
-		
+
 		try:
 			conn = database.get_connection(db_file)
 			conn.row_factory = database.sqlite3.Row
@@ -241,9 +243,150 @@ def serve(request: bytes) -> str:
 			return "The server has encountered an error while trying to serve the request."
 
 		return "ALGO" + str(deleted).zfill(3)
-
+	elif command == "REGU":
+		items = request.decode('utf-8')
+		list_items = items.split('_')
+		username = list_items[1]
+		password = list_items[2]
+		try:
+			conn = database.get_connection(db_file)
+			conn.row_factory = database.sqlite3.Row
+		except database.Error as e:
+			print(f'Error: {e}')
+		peer_account = peer_repository.find_account(conn, username=username)
+		if peer_account is not None:
+			return "Error"
+		else:
+			session_id = str(uuid.uuid4().hex[:16].upper())
+			peer = peer_repository.find(conn, session_id)
+			while peer is not None:
+				session_id = str(uuid.uuid4().hex[:16].upper())
+				peer = peer_repository.find(conn, session_id)
+			peer_account = Peer_account(session_id=session_id, username=username, password=password)
+			peer_account.insert(conn=conn)
+			conn.commit()
+			return f"Successful_{session_id}"
+	elif command == "SAPE":
+		try:
+			conn = database.get_connection(db_file)
+			conn.row_factory = database.sqlite3.Row
+		except database.Error as e:
+			print(f'Error: {e}')
+		items = request.decode('utf-8')
+		list_items = items.split('_')
+		peer = Peer(session_id=list_items[1], ip = ip, your_name = list_items[2], port = list_items[3], state_on_off=list_items[4])
+		peer.insert(conn=conn)
+		conn.commit()
+		conn.close()
+		return "Successfull save peer"
+	elif command == "LOGU":
+		try:
+			conn = database.get_connection(db_file)
+			conn.row_factory = database.sqlite3.Row
+		except database.Error as e:
+			print(f'Error: {e}')
+		items = request.decode('utf-8')
+		list_items = items.split('_')
+		username = list_items[1]
+		password = list_items[2]
+		peer_account = peer_repository.find_account(conn=conn, username=username)
+		if peer_account is not None:
+			if password == peer_account.password_account:
+				peer = peer_repository.find(conn, peer_account.session_id)
+				peer.ip = ip
+				peer.state_on_off = True
+				peer.update(conn)
+				conn.commit()
+				return f"Successfull_{peer_account.session_id}"
+			else:
+				return "Error"
+		else:
+			return "Error"
+		conn.close()
+	elif command == "LOGX":
+		try:
+			conn = database.get_connection(db_file)
+			conn.row_factory = database.sqlite3.Row
+		except database.Error as e:
+			print(f'Error: {e}')
+		items = request.decode('utf-8')
+		list_items = items.split('_')
+		username = list_items[1]
+		password = list_items[2]
+		peer_account = peer_repository.find_account(conn=conn, username=username)
+		peer = peer_repository.find(conn, peer_account.session_id)
+		peer.state_on_off = False
+		peer.update(conn)
+		conn.commit()
+		conn.close()
+		return "Successfull log out"
+	elif command == "FINX":
+		return find(request=request)
+	elif command == "GELI":
+		try:
+			conn = database.get_connection(db_file)
+			conn.row_factory = database.sqlite3.Row
+		except database.Error as e:
+			print(f'Error: {e}')
+		items = request.decode('utf-8')
+		list_items = items.split('_')
+		session_id = list_items[1]
+		file_list = peer_repository.get_files_by_peer(conn=conn, session_id=session_id)
+		conn.close()
+		return file_list
+	elif command == "GENA":
+		try:
+			conn = database.get_connection(db_file)
+			conn.row_factory = database.sqlite3.Row
+		except database.Error as e:
+			print(f'Error: {e}')
+		items = request.decode('utf-8')
+		list_items = items.split('_')
+		session_id = list_items[1]
+		username = peer_repository.find_account_by_session_id(conn=conn, session_id= session_id).username
+		conn.close()
+		return username
+	elif command == "POIF":
+		try:
+			conn = database.get_connection(db_file)
+			conn.row_factory = database.sqlite3.Row
+		except database.Error as e:
+			print(f'Error: {e}')
+		items = request.decode('utf-8')
+		list_items = items.split('_')
+		session_id = list_items[1]
+		file_md5 = list_items[2]
+		peer = peer_repository.find(conn=conn, session_id=session_id)
+		filename = file_repository.find(conn=conn, file_md5=file_md5).file_name
+		conn.close()
+		print(peer.ip, peer.port, filename)
+		return f"{peer.ip}_{peer.port}_{filename}"
+	elif command == "POIP":
+		try:
+			conn = database.get_connection(db_file)
+			conn.row_factory = database.sqlite3.Row
+		except database.Error as e:
+			print(f'Error: {e}')
+		items = request.decode('utf-8')
+		list_items = items.split('_')
+		session_id = list_items[1]
+		peer = peer_repository.find(conn=conn, session_id=session_id)
+		conn.close()
+		return f"{peer.ip}_{peer.port}"
+	elif command == 'FIPA':
+		try:
+			conn = database.get_connection(db_file)
+			conn.row_factory = database.sqlite3.Row
+		except database.Error as e:
+			print(f'Error: {e}')
+		items = request.decode('utf-8')
+		list_items = items.split('_')
+		session_id = list_items[1]
+		file_md5 = list_items[2]
+		file_path = peer_repository.get_files_by_peer_and_file_ID(conn=conn, session_id=session_id, file_md5=file_md5)[0][2]
+		return file_path
 	else:
-		return "Command \'" + request.decode('UTF-8') + "\' is invalid, try again."
+		return 'Command Error !!!'
 	
 
 def find(request: bytes):

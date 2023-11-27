@@ -2,6 +2,7 @@ from tkinter import *
 import tkinter as tk
 import sys
 import os
+import pickle
 from tkinter import messagebox
 from database import database
 from model.Peer import Peer
@@ -38,19 +39,20 @@ CLEAR_PATTERN = r"^clear$"
 
 
 db_file = 'directory.db'
+HOST_SERVER = '26.168.166.234'
+PORT_SERVER = 3000
 
 
 
 
 def save_peer(root, session_id, ip, your_name, port):
-  try:
-    conn = database.get_connection(db_file)
-    conn.row_factory = database.sqlite3.Row
-  except database.Error as e:
-    print(f'Error: {e}')
-  peer = Peer(session_id=session_id, ip = ip, your_name = your_name, port = port, state_on_off=False)
-  peer.insert(conn=conn)
-  conn.commit()
+  HOST = '26.168.166.234'
+  PORT_SERVER = 3000
+  my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+  my_socket.connect((HOST, PORT_SERVER))
+  my_socket.send(f"SAPE_{session_id}_{your_name}_{port}_{False}".encode('utf-8'))
+  re_mess = my_socket.recv(1024).decode('utf-8')
+  my_socket.close()
   root.destroy()
   login()
 
@@ -99,29 +101,23 @@ def register_user(root, username: str, password: str, password_rep: str) :
         if(password_rep != password):
             messagebox.showerror("Lỗi", "Mật khẩu không khớp !")
         else:
-          try:
-            conn = database.get_connection(db_file)
-            conn.row_factory = database.sqlite3.Row
-          except database.Error as e:
-            print(f'Error: {e}')
           # Đây là nơi để xử lý việc lưu thông tin người dùng vào cơ sở dữ liệu hoặc tập tin
           # Trong ví dụ này, chúng ta chỉ hiển thị một thông báo
-          peer_account = peer_repository.find_account(conn, username=username)
-          if peer_account is not None:
+          HOST = '26.168.166.234'
+          PORT_SERVER = 3000
+          my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+          my_socket.connect((HOST, PORT_SERVER))
+          my_socket.send(f"REGU_{username}_{password}".encode('utf-8'))
+          re_mess = my_socket.recv(1024).decode('utf-8')
+          if re_mess == "Error":
             messagebox.showerror("Lỗi", "Tên tài khoản đã tồn tại, vui lòng chọn tên khác.")
           else:
-            session_id = str(uuid.uuid4().hex[:16].upper())
-            peer = peer_repository.find(conn, session_id)
-            while peer is not None:
-              session_id = str(uuid.uuid4().hex[:16].upper())
-              peer = peer_repository.find(conn, session_id)
-            peer_account = Peer_account(session_id=session_id, username=username, password=password)
-            peer_account.insert(conn=conn)
-            conn.commit()
+            session_id = re_mess.split('_')[1]
             message = f"Đăng ký tài khoản thành công!\nTên tài khoản: {username}\nMật khẩu: {password}"
             messagebox.showinfo("Đăng ký thành công", message)
             root.destroy()
             show_account_info(session_id=session_id)
+          my_socket.close()
     else:
         messagebox.showerror("Lỗi", "Vui lòng điền cả tên tài khoản và mật khẩu.")
 
@@ -163,18 +159,35 @@ def register(root):
 
 def main_view(session_id:str):
   def add_file_to_list():
-      file_path = filedialog.askopenfilename()  # Hiển thị hộp thoại mở tệp và lấy đường dẫn tệp đã chọn
-      if file_path:
-          handler.serve(f"ADDF_{file_path.split('/')[-1]}_{file_path}_{session_id}".encode('utf-8'))
-  def check(treeview, conn, session_id):
-    file_list = peer_repository.get_files_by_peer(conn=conn, session_id=session_id)
+    file_path = filedialog.askopenfilename()  # Hiển thị hộp thoại mở tệp và lấy đường dẫn tệp đã chọn
+    if file_path:
+        HOST = '26.168.166.234'
+        PORT_SERVER = 3000
+        my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        my_socket.connect((HOST, PORT_SERVER))
+        my_socket.send(f"ADDF_{file_path.split('/')[-1]}_{file_path}_{session_id}".encode('utf-8'))
+        my_socket.recv(1024).decode('utf-8')
+        my_socket.close()
+  def check(treeview, session_id):
+    HOST = '26.168.166.234'
+    PORT_SERVER = 3000
+    my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    my_socket.connect((HOST, PORT_SERVER))
+    my_socket.send(f"GELI_{session_id}".encode('utf-8'))
+
+    file_list = pickle.loads(my_socket.recv(4096))
     for item in treeview.get_children():
       treeview.delete(item)
     for file in file_list:
       treeview.insert("", "end", values=(file['file_name'], file['file_path'], file['file_md5']))
-    app.tab1.after(100, lambda: check(treeview=treeview, conn=conn, session_id=session_id))
+    app.tab1.after(100, lambda: check(treeview=treeview,session_id=session_id))
   def find_source_files(treeview, message):
-    list_source = handler.find(message)
+    HOST = '26.168.166.234'
+    PORT_SERVER = 3000
+    my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    my_socket.connect((HOST, PORT_SERVER))
+    my_socket.send(message)
+    list_source = pickle.loads(my_socket.recv(4096))
     for item in treeview.get_children():
       treeview.delete(item)
     treeview.grid(row=3, column= 0, padx= 0, pady= 0)
@@ -205,6 +218,7 @@ def main_view(session_id:str):
       client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
       HOST_download = values[3]
       PORT_download = int(values[4])
+      print(HOST_download, PORT_download)
       client_socket.connect((HOST_download, PORT_download))
       client_socket.send(f"Please send me {values[0]} !!!".encode('utf-8')) 
       accept = client_socket.recv(1024).decode('utf-8')
@@ -236,17 +250,23 @@ def main_view(session_id:str):
         file.close()
         root.after(1000,lambda: success_label.destroy())
       client_socket.close()
- 
 
+  HOST = '26.168.166.234'
+  PORT_SERVER = 3000
+  my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+  my_socket.connect((HOST, PORT_SERVER))
+  
+  my_socket.send(f"GELI_{session_id}".encode('utf-8'))
+  file_list = pickle.loads(my_socket.recv(4096))
+  my_socket.close() 
 
-  try:
-    conn = database.get_connection(db_file)
-    conn.row_factory = database.sqlite3.Row
-  except database.Error as e:
-    print(f'Error: {e}')
-  file_list = peer_repository.get_files_by_peer(conn=conn, session_id=session_id)
   # Tạo cửa sổ chính
-  username = peer_repository.find_account_by_session_id(conn=conn, session_id= session_id).username
+  my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+  my_socket.connect((HOST, PORT_SERVER))
+  my_socket.send(f"GENA_{session_id}".encode('utf-8'))
+  username = my_socket.recv(1024).decode('utf-8')
+  my_socket.close() 
+
   root = tk.Tk()
   app = App(root, username, session_id)
   # Tạo danh sách và đặt nó vào cửa sổ
@@ -264,7 +284,7 @@ def main_view(session_id:str):
   for file in file_list:
     treeview.insert("", "end", values=(file['file_name'], file['file_path'], file['file_md5']))
 
-  app.tab1.after(100, lambda: check(treeview=treeview, conn=conn, session_id=session_id))
+  app.tab1.after(100, lambda: check(treeview=treeview,session_id=session_id))
   # Tạo nút để chọn tệp và thêm vào danh sách
   add_file_button = tk.Button(app.tab1, text="Add File", command=add_file_to_list)
   add_file_button.grid(row=1, column=0, padx=10, pady=10)
@@ -276,7 +296,7 @@ def main_view(session_id:str):
   seek_file_entry.grid(row=2, column=0, padx=10, pady=10)
 
   submit_button = tk.Button(frame, text="Submit", command=lambda: find_source_files(treeview=treeview_x,
-    message=f'FIND_{seek_file_entry.get()}_{session_id}'.encode('utf-8')
+    message=f'FINX_{seek_file_entry.get()}_{session_id}'.encode('utf-8')
   ))
   submit_button.grid(row=2, column=1)
   treeview_x.bind('<<TreeviewSelect>>', download_from_source)
@@ -289,20 +309,14 @@ def main_view(session_id:str):
 
 
 def user_cli(session_id:str):
-  try:
-    conn = database.get_connection(db_file)
-    conn.row_factory = database.sqlite3.Row
-  except database.Error as e:
-    print(f'Error: {e}')
   host = '127.0.0.1'
-  port = int(peer_repository.find(conn=conn, session_id=session_id).port)
-  conn.close()
+  port = 3001
+  #port = int(peer_repository.find(conn=conn, session_id=session_id).port)
   server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   server_socket.bind((host, port))
   server_socket.listen(1)
-  HOST = '10.229.74.245'
+  HOST = '26.168.166.234'
   PORT_SERVER = 3000
-  session = session_id
   while True:
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
     my_socket.connect((HOST, PORT_SERVER))
@@ -312,7 +326,9 @@ def user_cli(session_id:str):
     if cmd == "publish":
       path = userInput.split()[2]
       path = path.replace("\\", "/")
-      my_socket.send(f"ADDF_{userInput.split()[1]}_{path}_{session_id}".encode('utf-8'))
+      mess =f"ADDF_{userInput.split()[1]}_{path}_{session_id}"
+      print(mess)
+      my_socket.send(mess.encode('utf-8'))
       rcv_message = f'{my_socket.recv(2000).decode("utf-8")}'
       shell.print_red(rcv_message)
       if rcv_message.split()[0] == "AADD":
@@ -325,16 +341,19 @@ def user_cli(session_id:str):
         conn.send(rcv_message.encode('utf-8')) 
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         command = conn.recv(1024).decode('utf-8')
-        try:
-          connn = database.get_connection(db_file)
-          connn.row_factory = database.sqlite3.Row
-        except database.Error as e:
-          print(f'Error: {e}')
-        peer = peer_repository.find(conn=connn, session_id=command.split()[-1])
-        filename = file_repository.find(conn=connn, file_md5=command.split()[0]).file_name
-        connn.close()
-        client_socket.connect((peer.ip, int(peer.port)))
-        client_socket.send(f"Please send me {filename} !!!".encode('utf-8')) 
+
+        tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        tmp_socket.connect((HOST, PORT_SERVER))
+        tmp_socket.send(f"POIF_{command.split()[-1]}_{command.split()[0]}".encode('utf-8'))
+        peer_file = tmp_socket.recv(1024).decode('utf-8').split('_')
+        
+        print("cac")
+        print(peer_file)
+        client_socket.connect((peer_file[0], int(peer_file[1])))
+        client_socket.send(f"Please send me {peer_file[2]} !!!".encode('utf-8'))
+        tmp_socket.close() 
+
+
         accept = client_socket.recv(1024).decode('utf-8')
         if accept == "True":
           client_socket.send(command.split()[0].encode('utf-8'))
@@ -344,7 +363,7 @@ def user_cli(session_id:str):
           file_size = struct.unpack("!Q", file_size_bytes)[0]
           print(f"File size: {file_size}")
 
-          file = open(filename, "wb")
+          file = open(peer_file[2], "wb")
           file_bytes = b""
           done = False
           pbar  = tqdm.tqdm(unit="B", unit_scale=True, unit_divisor=1000, total=int(file_size))
@@ -358,7 +377,7 @@ def user_cli(session_id:str):
           pbar.close()
           file.write(file_bytes)
           file.close()
-          conn.send(f"Successful download {filename} from {command.split()[-1]} !!!\n".encode('utf-8'))
+          conn.send(f"Successful download {peer_file[2]} from {command.split()[-1]} !!!\n".encode('utf-8'))
           client_socket.close()
       else:
         conn.send(f"No file name {userInput.split()[1]} !!!".encode('utf-8'))
@@ -382,14 +401,18 @@ def show_dialog(message:str, client_address:str):
     else:
         print("Dialog closed or an error occurred")
 def source_node(session_id:str):
-  try:
-    conn = database.get_connection(db_file)
-    conn.row_factory = database.sqlite3.Row
-  except database.Error as e:
-    print(f'Error: {e}')
-  PORT = peer_repository.find(conn=conn, session_id=session_id).port
-  conn.close()
-  HOST = socket.gethostbyname(socket.gethostname())
+  HOST = '26.168.166.234'
+  PORT_SERVER = 3000
+  tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+  tmp_socket.connect((HOST, PORT_SERVER))
+  tmp_socket.send(f"POIP_{session_id}".encode('utf-8'))
+  ip_port = tmp_socket.recv(1024).decode('utf-8').split('_')
+  SOURCE_PORT = ip_port[1] 
+  SOURCE_HOST = ip_port[0]
+  print(SOURCE_HOST)
+  print(SOURCE_PORT)
+  tmp_socket.close()
+
   def child(client_socket, file_path):
     with open(file_path, 'rb') as f:
       file_size = os.path.getsize(file_path)
@@ -405,7 +428,7 @@ def source_node(session_id:str):
 
 
   server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  server.bind((HOST, int(PORT)))
+  server.bind((SOURCE_HOST, int(SOURCE_PORT)))
   server.listen()
 
   while True:
@@ -416,12 +439,10 @@ def source_node(session_id:str):
     if(result):
       client_socket.send(str(result).encode('utf-8'))
       file = client_socket.recv(1024).decode('utf-8')
-      try:
-        conn = database.get_connection(db_file)
-        conn.row_factory = database.sqlite3.Row
-      except database.Error as e:
-        print(f'Error: {e}')
-      file_path = peer_repository.get_files_by_peer_and_file_ID(conn=conn, session_id=session_id, file_md5=file)[0][2]
+      tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+      tmp_socket.connect((HOST, PORT_SERVER))
+      tmp_socket.send(f"FIPA_{session_id}_{file}".encode('utf-8'))
+      file_path = tmp_socket.recv(1024).decode('utf-8')
       print(file_path)
       if(file):
         t = threading.Thread(target=child, args=(client_socket, file_path,))
@@ -434,41 +455,34 @@ def source_node(session_id:str):
     
 
 def logic(root, username:str, password:str):
-  try:
-    conn = database.get_connection(db_file)
-    conn.row_factory = database.sqlite3.Row
-  except database.Error as e:
-    print(f'Error: {e}')
-  peer_account = peer_repository.find_account(conn=conn, username=username)
-  if peer_account is not None:
-    if password == peer_account.password_account:
-      peer = peer_repository.find(conn, peer_account.session_id)
-      peer.ip = socket.gethostbyname(socket.gethostname())
-      peer.state_on_off = True
-      peer.update(conn)
-      conn.commit()
-
-      root.destroy()
-      thread2 = threading.Thread(target=main_view, args=(peer_account.session_id,))
-      thread1 = threading.Thread(target=user_cli, args=(peer_account.session_id,))
-      thread3 = threading.Thread(target=source_node, args=(peer_account.session_id,))
-   
-      thread1.daemon = True
-      thread3.daemon = True
-      
-      thread2.start() 
-      thread1.start()
-      thread3.start()   
-      thread2.join()
-      peer.state_on_off = False
-      peer.update(conn)
-      conn.commit()
-      conn.close()
-
-    else:
-      messagebox.showerror("Lỗi", "Mật khẩu không đúng !")
-  else:
+  HOST = '26.168.166.234'
+  PORT_SERVER = 3000
+  my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+  my_socket.connect((HOST, PORT_SERVER))
+  my_socket.send(f"LOGU_{username}_{password}".encode('utf-8'))
+  
+  res_message = my_socket.recv(1024).decode('utf-8')
+  my_socket.close()
+  if res_message == "Error":
     messagebox.showerror("Lỗi", "Tài khoản hoặc mật khẩu không đúng !")
+  else:
+    root.destroy()
+    thread2 = threading.Thread(target=main_view, args=(res_message.split('_')[1],))
+    thread1 = threading.Thread(target=user_cli, args=(res_message.split('_')[1],))
+    thread3 = threading.Thread(target=source_node, args=(res_message.split('_')[1],))
+  
+    thread1.daemon = True
+    thread3.daemon = True
+    
+    thread2.start() 
+    thread1.start()
+    thread3.start()   
+    thread2.join()
+    my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    my_socket.connect((HOST, PORT_SERVER))
+    my_socket.send(f"LOGX_{username}_{password}".encode('utf-8'))
+    res_message = my_socket.recv(1024).decode('utf-8')
+    my_socket.close()
        
    
 def login():
@@ -509,4 +523,3 @@ def login():
     root.mainloop()
 
 login()
-   

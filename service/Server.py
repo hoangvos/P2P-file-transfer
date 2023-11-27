@@ -10,6 +10,7 @@ import tkinter as tk
 import re
 from . import ServerFunctionCLI
 from tkinter import ttk
+import pickle
 
 
 db_file = 'directory.db'
@@ -129,13 +130,20 @@ class Server:
 			#self.ss.close()
 
 			request = sd.recv(self.BUFF_SIZE)
-			shell.print_green(f'{client} [{client_port}] -> ', end='')
-			print(f'{request.decode("utf-8")}', end='')
-
-			response = handler.serve(request)
-			sd.send(response.encode("utf-8"))
-			shell.print_red(' -> ', end='')
-			print(f'{response}')
+			
+			if request.decode("utf-8").split('_')[0] != "GELI":
+				shell.print_green(f'{client} [{client_port}] -> ', end='')
+				print(f'{request.decode("utf-8")}', end='')
+			
+			response = handler.serve(request, client)
+			if isinstance(response, list):
+				response = [dict(row) for row in response]
+				sd.send(pickle.dumps(response))
+			else:
+				sd.send(response.encode("utf-8"))
+			if request.decode("utf-8").split('_')[0] != "GELI":
+				shell.print_red(' -> ', end='')
+				print(f'{response}')
 
 			if response[0:4] == "ALGO":
 				shell.print_blue(f'Client {client} [{client_port}] said goodbye! {int(response[4:])} files deleted.')
@@ -161,7 +169,7 @@ class Server:
 			#self.ss.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 			# Bind the local address (sockaddr) to the socket (ss)
-			self.ss.bind(('10.229.74.245', self.port))
+			self.ss.bind(('26.168.166.234', self.port))
 
 			# Transform the socket in a passive socket and
 			# define a queue of SOMAXCONN possible connection requests
@@ -185,6 +193,7 @@ class Server:
 			# Put the passive socket on hold for connection requests
 			try:
 				sd, clientaddr = self.ss.accept()
+				#print(clientaddr)
 			except OSError as e:
 				print(f'Error: {e}')
 				sys.exit(socket.error)

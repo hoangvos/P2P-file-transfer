@@ -113,17 +113,17 @@ class App:
               output_field.insert(tk.END, DOWNLOAD_COMMAND, "color")
               output_field.see(tk.END)
             else:
-              try:
-                conn = database.get_connection(db_file)
-                conn.row_factory = database.sqlite3.Row
-              except database.Error as e:
-                print(f'Error: {e}')
-              peer = peer_repository.find(conn=conn, session_id=command.split()[-1])
-              filename = file_repository.find(conn=conn, file_md5=command.split()[0]).file_name
-              conn.close()
+              HOST = '26.168.166.234'
+              PORT_SERVER = 3000
+              tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+              tmp_socket.connect((HOST, PORT_SERVER))
+              tmp_socket.send(f"POIF_{command.split()[-1]}_{command.split()[0]}".encode('utf-8'))
+              peer_file = tmp_socket.recv('1024').decode('utf-8').split('_')
+
               client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-              client_socket.connect((peer.ip, int(peer.port)))
-              client_socket.send(f"Please send me {filename} !!!".encode('utf-8')) 
+              client_socket.connect((peer_file[0], int(peer_file[1])))
+              client_socket.send(f"Please send me {peer_file[2]} !!!".encode('utf-8')) 
+              tmp_socket.close() 
               accept = client_socket.recv(1024).decode('utf-8')
               if accept == "True":
                 client_socket.send(command.split()[0].encode('utf-8'))
@@ -132,7 +132,7 @@ class App:
                 file_size = client_socket.recv(1024).decode('utf-8')
                 output_field.insert(tk.END, f"\nFile size: {file_size}\n", "color")
                 output_field.see(tk.END)
-                file = open(filename, "wb")
+                file = open(peer_file[2], "wb")
                 file_bytes = b""
                 done = False
                 pbar  = tqdm.tqdm(unit="B", unit_scale=True, unit_divisor=1000, total=int(file_size)) 
@@ -146,7 +146,7 @@ class App:
                 pbar.close()
                 file.write(file_bytes)
                 file.close()
-                output_field.insert(tk.END, f"\nSuccessful download {filename} from {command.split()[-1]} !!!\n", "color")
+                output_field.insert(tk.END, f"\nSuccessful download {peer_file[2]} from {command.split()[-1]} !!!\n", "color")
                 output_field.see(tk.END)
               else:
                 output_field.insert(tk.END, f"\n{command.split()[-1]} don't permit you to download the file. Choose another source node !!!\n", "color")

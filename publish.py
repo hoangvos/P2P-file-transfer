@@ -2,7 +2,7 @@ import socket
 import sys 
 from utils import shell_colors
 host = "127.0.0.1"
-port = 12345
+port = 3001
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.connect((host, port))
 
