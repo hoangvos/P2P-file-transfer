@@ -19,6 +19,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QFileDialog, QMessageBox # pi
 from PyQt5.Qt import QApplication as QApp
 from tkinter import filedialog, messagebox
 from service import handler
+from service.Server import PORT_SERVER, HOST_SERVER
 from tkinter import ttk
 import multiprocessing
 from ttkthemes import ThemedStyle
@@ -39,17 +40,13 @@ CLEAR_PATTERN = r"^clear$"
 
 
 db_file = 'directory.db'
-HOST_SERVER = '26.168.166.234'
-PORT_SERVER = 3000
 
 
 
 
 def save_peer(root, session_id, ip, your_name, port):
-  HOST = '26.168.166.234'
-  PORT_SERVER = 3000
   my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-  my_socket.connect((HOST, PORT_SERVER))
+  my_socket.connect((HOST_SERVER, PORT_SERVER))
   my_socket.send(f"SAPE_{session_id}_{your_name}_{port}_{False}".encode('utf-8'))
   re_mess = my_socket.recv(1024).decode('utf-8')
   my_socket.close()
@@ -101,12 +98,8 @@ def register_user(root, username: str, password: str, password_rep: str) :
         if(password_rep != password):
             messagebox.showerror("Lỗi", "Mật khẩu không khớp !")
         else:
-          # Đây là nơi để xử lý việc lưu thông tin người dùng vào cơ sở dữ liệu hoặc tập tin
-          # Trong ví dụ này, chúng ta chỉ hiển thị một thông báo
-          HOST = '26.168.166.234'
-          PORT_SERVER = 3000
           my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-          my_socket.connect((HOST, PORT_SERVER))
+          my_socket.connect((HOST_SERVER, PORT_SERVER))
           my_socket.send(f"REGU_{username}_{password}".encode('utf-8'))
           re_mess = my_socket.recv(1024).decode('utf-8')
           if re_mess == "Error":
@@ -127,7 +120,6 @@ def register(root):
     register_root = tk.Tk()
     register_root.title("Đăng ký tài khoản")
 
-    # Định nghĩa kiểu cho ttk.Button
     style = ttk.Style()
     style.configure('TButton', font=('calibri', 14, 'bold'), borderwidth='4')
 
@@ -251,10 +243,8 @@ def main_view(session_id:str):
         root.after(1000,lambda: success_label.destroy())
       client_socket.close()
 
-  HOST = '26.168.166.234'
-  PORT_SERVER = 3000
   my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-  my_socket.connect((HOST, PORT_SERVER))
+  my_socket.connect((HOST_SERVER, PORT_SERVER))
   
   my_socket.send(f"GELI_{session_id}".encode('utf-8'))
   file_list = pickle.loads(my_socket.recv(4096))
@@ -262,7 +252,7 @@ def main_view(session_id:str):
 
   # Tạo cửa sổ chính
   my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-  my_socket.connect((HOST, PORT_SERVER))
+  my_socket.connect((HOST_SERVER, PORT_SERVER))
   my_socket.send(f"GENA_{session_id}".encode('utf-8'))
   username = my_socket.recv(1024).decode('utf-8')
   my_socket.close() 
@@ -311,15 +301,12 @@ def main_view(session_id:str):
 def user_cli(session_id:str):
   host = '127.0.0.1'
   port = 3001
-  #port = int(peer_repository.find(conn=conn, session_id=session_id).port)
   server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   server_socket.bind((host, port))
   server_socket.listen(1)
-  HOST = '26.168.166.234'
-  PORT_SERVER = 3000
   while True:
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-    my_socket.connect((HOST, PORT_SERVER))
+    my_socket.connect((HOST_SERVER, PORT_SERVER))
     conn, addr = server_socket.accept()
     userInput = conn.recv(1024).decode('utf-8')
     cmd = userInput.split()[0]
@@ -343,12 +330,10 @@ def user_cli(session_id:str):
         command = conn.recv(1024).decode('utf-8')
 
         tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        tmp_socket.connect((HOST, PORT_SERVER))
+        tmp_socket.connect((HOST_SERVER, PORT_SERVER))
         tmp_socket.send(f"POIF_{command.split()[-1]}_{command.split()[0]}".encode('utf-8'))
         peer_file = tmp_socket.recv(1024).decode('utf-8').split('_')
         
-        print("cac")
-        print(peer_file)
         client_socket.connect((peer_file[0], int(peer_file[1])))
         client_socket.send(f"Please send me {peer_file[2]} !!!".encode('utf-8'))
         tmp_socket.close() 
@@ -401,16 +386,12 @@ def show_dialog(message:str, client_address:str):
     else:
         print("Dialog closed or an error occurred")
 def source_node(session_id:str):
-  HOST = '26.168.166.234'
-  PORT_SERVER = 3000
   tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-  tmp_socket.connect((HOST, PORT_SERVER))
+  tmp_socket.connect((HOST_SERVER, PORT_SERVER))
   tmp_socket.send(f"POIP_{session_id}".encode('utf-8'))
   ip_port = tmp_socket.recv(1024).decode('utf-8').split('_')
   SOURCE_PORT = ip_port[1] 
   SOURCE_HOST = ip_port[0]
-  print(SOURCE_HOST)
-  print(SOURCE_PORT)
   tmp_socket.close()
 
   def child(client_socket, file_path):
@@ -435,30 +416,32 @@ def source_node(session_id:str):
     client_socket, client_address = server.accept()
     print(f"Connection from {client_address}")
     request = client_socket.recv(1024).decode('utf-8')
-    result = messagebox.askyesno("Flash Message", f"Request: {request}. Do you want to accept it?")
-    if(result):
-      client_socket.send(str(result).encode('utf-8'))
-      file = client_socket.recv(1024).decode('utf-8')
-      tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-      tmp_socket.connect((HOST, PORT_SERVER))
-      tmp_socket.send(f"FIPA_{session_id}_{file}".encode('utf-8'))
-      file_path = tmp_socket.recv(1024).decode('utf-8')
-      print(file_path)
-      if(file):
-        t = threading.Thread(target=child, args=(client_socket, file_path,))
-        t.daemon = True
-        t.start()
+    if request == "PING":
+      client_socket.send("Successful !!!".encode('utf-8'))
+      client_socket.close()
+    else:
+      result = messagebox.askyesno("Flash Message", f"Request: {request}. Do you want to accept it?")
+      if(result):
+        client_socket.send(str(result).encode('utf-8'))
+        file = client_socket.recv(1024).decode('utf-8')
+        tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        tmp_socket.connect((HOST_SERVER, PORT_SERVER))
+        tmp_socket.send(f"FIPA_{session_id}_{file}".encode('utf-8'))
+        file_path = tmp_socket.recv(1024).decode('utf-8')
+        print(file_path)
+        if(file):
+          t = threading.Thread(target=child, args=(client_socket, file_path,))
+          t.daemon = True
+          t.start()
+        else:
+          client_socket.close()
       else:
         client_socket.close()
-    else:
-      client_socket.close()
     
 
 def logic(root, username:str, password:str):
-  HOST = '26.168.166.234'
-  PORT_SERVER = 3000
   my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-  my_socket.connect((HOST, PORT_SERVER))
+  my_socket.connect((HOST_SERVER, PORT_SERVER))
   my_socket.send(f"LOGU_{username}_{password}".encode('utf-8'))
   
   res_message = my_socket.recv(1024).decode('utf-8')
@@ -479,7 +462,7 @@ def logic(root, username:str, password:str):
     thread3.start()   
     thread2.join()
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-    my_socket.connect((HOST, PORT_SERVER))
+    my_socket.connect((HOST_SERVER, PORT_SERVER))
     my_socket.send(f"LOGX_{username}_{password}".encode('utf-8'))
     res_message = my_socket.recv(1024).decode('utf-8')
     my_socket.close()

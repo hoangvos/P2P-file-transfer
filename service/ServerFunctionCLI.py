@@ -1,7 +1,8 @@
 import sqlite3
 from prettytable import PrettyTable
-
-
+from . import Server
+import socket
+import time
 
 databaseDirectory = 'directory.db'
 
@@ -37,11 +38,32 @@ def PingHostname(hostname):
             print("Hostname empty","Please enter a hostname")
             return
 
-        queryString = "SELECT A.username, P.state_on_off FROM peers_account AS A, peers AS P WHERE A.session_id = P.session_id AND A.username=?"
+        queryString = "SELECT A.username, P.state_on_off, P.ip, P.port FROM peers_account AS A, peers AS P WHERE A.session_id = P.session_id AND A.username=?"
         cursor.execute(queryString,(hostname,))
         outputRows = cursor.fetchall()
         if not outputRows:
             return f"No hostname like {hostname}"
+        if outputRows[0][1] == 0:
+            return f"{hostname} is not logged in yet"
+        client_info = f"--Client--: {hostname}\n"
+        try:
+            my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+            my_socket.connect((outputRows[0][2], int(outputRows[0][3])))
+            my_socket.send("PING".encode('utf-8'))
+            start_time = time.time()
+            response = my_socket.recv(1024).decode('utf-8')
+            end_time = time.time()
+            round_trip_time = "{:,.8f}".format(end_time - start_time)
+            if response:
+                
+                client_info += "--Status--: ALIVE\n"
+                client_info += f"--Round-Trip Time--: {round_trip_time} (s)\n"
+                return client_info
+        except Exception as e:
+            client_info += f"--Status--: NOT ALIVE\n"
+            client_info += f"--Error--: {e}\n"
+            return client_info
+        
         return PrintTable(headersTuple,outputRows)
     except sqlite3.Error as error:
         print("Error while connecting to sqlite",error,"\n")

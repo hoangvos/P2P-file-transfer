@@ -8,6 +8,7 @@ import uuid
 from model.Peer import Peer_account
 import socket
 import pickle
+
 db_file = 'directory.db'
 
 def serve(request: bytes, ip) -> str:

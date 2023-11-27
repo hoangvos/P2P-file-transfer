@@ -23,6 +23,7 @@ import multiprocessing
 from ttkthemes import ThemedStyle
 import re
 import subprocess
+from service.Server import HOST_SERVER, PORT_SERVER
 
 
 CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n3. clear\n\n"
@@ -113,10 +114,8 @@ class App:
               output_field.insert(tk.END, DOWNLOAD_COMMAND, "color")
               output_field.see(tk.END)
             else:
-              HOST = '26.168.166.234'
-              PORT_SERVER = 3000
               tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-              tmp_socket.connect((HOST, PORT_SERVER))
+              tmp_socket.connect((HOST_SERVER, PORT_SERVER))
               tmp_socket.send(f"POIF_{command.split()[-1]}_{command.split()[0]}".encode('utf-8'))
               peer_file = tmp_socket.recv('1024').decode('utf-8').split('_')
 
@@ -184,7 +183,7 @@ class App:
 
         output_field.config(state=tk.DISABLED)
     def create_tab2(self):
-        header = tk.Label(self.tab2, text = f"Hello, Hoang", font=("San Serif", 11, "bold"))
+        header = tk.Label(self.tab2, text = f"Hello, {self.username}", font=("San Serif", 11, "bold"))
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
         terminal_output = tk.Text(self.tab2, background = "black")
         terminal_output.tag_configure("color", foreground="white")

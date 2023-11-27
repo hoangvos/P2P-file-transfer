@@ -12,5 +12,5 @@ if __name__ == '__main__':
 	else:
 		database.reset_database(DB_FILE)
 
-	Server(3000).run()
+	Server().run()
 

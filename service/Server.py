@@ -14,9 +14,11 @@ import pickle
 
 
 db_file = 'directory.db'
+HOST_SERVER = '26.168.166.234'
+PORT_SERVER = 3000
 
 SERVER_COMMAND = "\n**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n3. clear\n\n"
-PING_PATTERN = r"^ping\s[\w]+$"
+PING_PATTERN = r"^ping.py\s[\w]+$"
 DISCOVER_PATTERN = r"^discover\s[\w]+$"
 CLEAR_PATTERN = r"^clear$"
 
@@ -74,7 +76,7 @@ def execute_command(input_field, output_field):
         if command == "clear":
             output_field.delete(0.1, tk.END)
             output_field.insert(tk.END, 
-                "Terminal [Version 1.0.0]\nCopyright (C) hoang. All right reserved.\n\n", "color")
+                "Terminal [Version 1.0.0]\nCopyright (C) Admin. All right reserved.\n\n", "color")
         else:
             output_field.insert(tk.END, result, "color")
             output_field.see(tk.END)
@@ -96,7 +98,7 @@ def terminal(root):
 	header.grid(row = 0, column = 0, padx = 5, pady = 5)
 	terminal_output = tk.Text(terminal_frame, background = "black")
 	terminal_output.tag_configure("color", foreground="white")
-	terminal_output.insert(tk.END, "Terminal [Version 1.0.0]\nCopyright (C) hoang. All right reserved.\n\n", "color")     
+	terminal_output.insert(tk.END, "Terminal [Version 1.0.0]\nCopyright (C) Admin. All right reserved.\n\n", "color")     
 	terminal_output.config(state = tk.DISABLED)
 	terminal_output.grid(row = 1, column = 0, columnspan = 200, padx = 5, pady = 5)
 
@@ -119,8 +121,9 @@ def terminal(root):
 
 
 class Server:
-	def __init__(self, port: int):
-		self.port = port
+	def __init__(self):
+		self.port = PORT_SERVER 
+		self.ip = HOST_SERVER
 		self.ss = None
 		self.BUFF_SIZE = 200
 
@@ -163,16 +166,7 @@ class Server:
 			print(f'Can\'t create the socket: {e}')
 			sys.exit(socket.error)
 		try:
-			# Set the SO_REUSEADDR flag in order to tell the kernel to reuse the socket even if it's in a TIME_WAIT state,
-			# without waiting for its natural timeout to expire.
-			# This is because sockets in a TIME_WAIT state can’t be immediately reused.
-			#self.ss.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-			# Bind the local address (sockaddr) to the socket (ss)
-			self.ss.bind(('26.168.166.234', self.port))
-
-			# Transform the socket in a passive socket and
-			# define a queue of SOMAXCONN possible connection requests
+			self.ss.bind((self.ip, self.port))
 			self.ss.listen()
 		except OSError:
 			print(f'Can\'t handle the socket: {OSError}')
