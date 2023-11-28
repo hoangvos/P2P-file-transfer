@@ -18,7 +18,7 @@ HOST_SERVER = '26.168.166.234'
 PORT_SERVER = 3000
 
 SERVER_COMMAND = "\n**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n3. clear\n\n"
-PING_PATTERN = r"^ping.py\s[\w]+$"
+PING_PATTERN = r"^ping\s[\w]+$"
 DISCOVER_PATTERN = r"^discover\s[\w]+$"
 CLEAR_PATTERN = r"^clear$"
 
@@ -171,6 +171,8 @@ class Server:
 		except OSError:
 			print(f'Can\'t handle the socket: {OSError}')
 			sys.exit(socket.error)
+
+	
 	def run_gui(self):
 		root = tk.Tk()
 		tmp = terminal(root)

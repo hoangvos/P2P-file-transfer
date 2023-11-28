@@ -21,7 +21,7 @@ def serve(request: bytes, ip) -> str:
 	command = request[0:4].decode('UTF-8')
 	if command == "ADDF":
 		items = request.decode('utf-8')
-		list_items = items.split('_')
+		list_items = items.split('$')
 		if len(list_items) != 4:
 			return "Invalid request. Usage is: ADDF_<filename>_<filepath>_<your_session_id>"
 		name = list_items[1]

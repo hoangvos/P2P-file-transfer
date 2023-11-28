@@ -24,7 +24,6 @@ from tkinter import ttk
 import multiprocessing
 from ttkthemes import ThemedStyle
 import re
-from CLI_handle import App
 import subprocess 
 import struct
 
@@ -32,16 +31,13 @@ import struct
 CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n3. clear\n\n"
 DOWNLOAD_COMMAND = "\n*** Invalid syntax ***\nTo download from source please follow the pattern\nfile_id session_id\n\n"
 
-PUBLISH_PATTERN = r"^publish\s[a-zA-Z]:[\/\\](?:[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*[\/\\])*[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z0-9]+\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z0-9]+$"
-FETCH_PATTERN = r"^fetch\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]*\.[A-Za-z0-9]+$"
+
 FILE_ID_SESSION_ID_PATTERN = pattern = r"^[A-Z0-9]{16}\s[A-Z0-9]{16}$"
 CLEAR_PATTERN = r"^clear$"
 
 
 
 db_file = 'directory.db'
-
-
 
 
 def save_peer(root, session_id, ip, your_name, port):
@@ -78,13 +74,6 @@ def show_account_info(session_id: str):
 
     close_button = ttk.Button(frame, text="Lưu thông tin", command=lambda: save_peer(account_info_window, session_id=session_id, ip=socket.gethostbyname(socket.gethostname()), your_name=username_entry.get(), port=port_entry.get()))
     close_button.grid(row=2, column=0, columnspan=2, pady=20)
-
-    # Đưa cửa sổ ra giữa
-    window_width = account_info_window.winfo_reqwidth()
-    window_height = account_info_window.winfo_reqheight()
-    position_right = int(account_info_window.winfo_screenwidth() / 2 - window_width / 2)
-    position_down = int(account_info_window.winfo_screenheight() / 2 - window_height / 2)
-    account_info_window.geometry("+{}+{}".format(position_right, position_down))
 
     # Bắt đầu vòng lặp chính của cửa sổ nhập thông tin tài khoản
     account_info_window.mainloop()
@@ -153,18 +142,14 @@ def main_view(session_id:str):
   def add_file_to_list():
     file_path = filedialog.askopenfilename()  # Hiển thị hộp thoại mở tệp và lấy đường dẫn tệp đã chọn
     if file_path:
-        HOST = '26.168.166.234'
-        PORT_SERVER = 3000
         my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        my_socket.connect((HOST, PORT_SERVER))
-        my_socket.send(f"ADDF_{file_path.split('/')[-1]}_{file_path}_{session_id}".encode('utf-8'))
+        my_socket.connect((HOST_SERVER, PORT_SERVER))
+        my_socket.send(f"ADDF${file_path.split('/')[-1]}${file_path}${session_id}".encode('utf-8'))
         my_socket.recv(1024).decode('utf-8')
         my_socket.close()
   def check(treeview, session_id):
-    HOST = '26.168.166.234'
-    PORT_SERVER = 3000
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-    my_socket.connect((HOST, PORT_SERVER))
+    my_socket.connect((HOST_SERVER, PORT_SERVER))
     my_socket.send(f"GELI_{session_id}".encode('utf-8'))
 
     file_list = pickle.loads(my_socket.recv(4096))
@@ -172,12 +157,10 @@ def main_view(session_id:str):
       treeview.delete(item)
     for file in file_list:
       treeview.insert("", "end", values=(file['file_name'], file['file_path'], file['file_md5']))
-    app.tab1.after(100, lambda: check(treeview=treeview,session_id=session_id))
+    tab1.after(100, lambda: check(treeview=treeview,session_id=session_id))
   def find_source_files(treeview, message):
-    HOST = '26.168.166.234'
-    PORT_SERVER = 3000
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-    my_socket.connect((HOST, PORT_SERVER))
+    my_socket.connect((HOST_SERVER, PORT_SERVER))
     my_socket.send(message)
     list_source = pickle.loads(my_socket.recv(4096))
     for item in treeview.get_children():
@@ -258,10 +241,16 @@ def main_view(session_id:str):
   my_socket.close() 
 
   root = tk.Tk()
-  app = App(root, username, session_id)
+  root.title("User view")
+  notebook = ttk.Notebook(root)
+  tab1 = tk.Frame(notebook)
+  notebook.add(tab1, text="Home view")
+  notebook.grid(row=0, column=0, sticky="nsew")
+  style = ThemedStyle(root)
+  style.set_theme("radiance")
   # Tạo danh sách và đặt nó vào cửa sổ
-  treeview = ttk.Treeview(app.tab1, columns=("Column 1", "Column 2", "Column 3"), show="headings")
-  treeview_x = ttk.Treeview(app.tab1, columns=("Column 1", "Column 2", 'Column 3', 'Column 4', 'Column 5'), show="headings")
+  treeview = ttk.Treeview(tab1, columns=("Column 1", "Column 2", "Column 3"), show="headings")
+  treeview_x = ttk.Treeview(tab1, columns=("Column 1", "Column 2", 'Column 3', 'Column 4', 'Column 5'), show="headings")
   treeview.grid(row=0, column= 0, padx= 0, pady= 0)
     # Đặt tên cho các cột
   treeview.heading("Column 1", text="File name")
@@ -274,11 +263,11 @@ def main_view(session_id:str):
   for file in file_list:
     treeview.insert("", "end", values=(file['file_name'], file['file_path'], file['file_md5']))
 
-  app.tab1.after(100, lambda: check(treeview=treeview,session_id=session_id))
+  tab1.after(100, lambda: check(treeview=treeview,session_id=session_id))
   # Tạo nút để chọn tệp và thêm vào danh sách
-  add_file_button = tk.Button(app.tab1, text="Add File", command=add_file_to_list)
+  add_file_button = tk.Button(tab1, text="Add File", command=add_file_to_list)
   add_file_button.grid(row=1, column=0, padx=10, pady=10)
-  frame = tk.Frame(app.tab1)
+  frame = tk.Frame(tab1)
   frame.grid(row=2, column=0, padx=10, pady=10)
   seek_file = tk.Label(frame, text="Nhập file :")
   seek_file.grid(row=1, column=0, padx=10, pady=10)
@@ -311,9 +300,9 @@ def user_cli(session_id:str):
     userInput = conn.recv(1024).decode('utf-8')
     cmd = userInput.split()[0]
     if cmd == "publish":
-      path = userInput.split()[2]
+      path = userInput.split()[1]
       path = path.replace("\\", "/")
-      mess =f"ADDF_{userInput.split()[1]}_{path}_{session_id}"
+      mess =f"ADDF${userInput.split()[2]}${path}${session_id}"
       print(mess)
       my_socket.send(mess.encode('utf-8'))
       rcv_message = f'{my_socket.recv(2000).decode("utf-8")}'
@@ -496,12 +485,7 @@ def login():
     signup_button = ttk.Button(frame, text="Sign up", command=lambda: register(root=root))
     signup_button.grid(row=3, column=0, columnspan=2, pady=10)
 
-    # Đưa cửa sổ ra giữa
-    window_width = root.winfo_reqwidth()
-    window_height = root.winfo_reqheight()
-    position_right = int(root.winfo_screenwidth() / 2 - window_width / 2)
-    position_down = int(root.winfo_screenheight() / 2 - window_height / 2)
-    root.geometry("+{}+{}".format(position_right, position_down))
+
 
     root.mainloop()
 
